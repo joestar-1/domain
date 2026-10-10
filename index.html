@@ -33,77 +33,108 @@ a:hover,a:focus-visible{color:var(--o)}
 <input id="s" type="range" min="0" max="0.99" step="0.01" value="0.9">
 <label for="b">Disk brightness<span id="bv">1.00</span></label>
 <input id="b" type="range" min="0.2" max="2.5" step="0.05" value="1">
-<div class="l"><a href="https://github.com/joestar-1/domain">GitHub</a><a href="mailto:sukonoe356@protone.me">Contact</a></div>
+<div class="l"><a href="https://github.com/joestar-1/domain">GitHub</a><a href="mailto:sukonoe356@proton.me">Contact</a></div>
 </section>
 <script data-cfasync="false">
-const FS=`precision highp float;
-uniform vec2 R;uniform float T,sp,br,el,ri;
-float h2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+// Stage A (heavy, runs once): bends light around the hole and stores, per pixel, where the ray hit the disk.
+const FSA=`precision highp float;
+uniform vec2 R;uniform float el;
 float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
-float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y);}
 vec3 stars(vec3 d){
 vec3 p=d*140.,i=floor(p);float h=h3(i);
 float s=(1.-smoothstep(0.,.33,length(fract(p)-.5)))*step(.965,h);
 return mix(vec3(1.,.8,.65),vec3(.7,.8,1.),h3(i+3.))*s*(.35+1.5*h3(i+7.));}
-vec3 heat(float t){return mix(vec3(.5,.07,.02),vec3(1.,.6,.22),clamp(t,0.,1.))+vec3(0.,.28,.55)*max(t-1.,0.);}
 void main(){
 vec2 uv=(gl_FragCoord.xy-.5*R)/min(R.x,R.y);
 vec3 p=40.*vec3(0.,sin(el),cos(el));
 vec3 fw=-normalize(p),rt=normalize(cross(fw,vec3(0.,1.,0.))),up=cross(rt,fw);
 vec3 v=normalize(uv.x*rt+uv.y*up+2.2*fw);
 vec3 hv=cross(p,v);float H=dot(hv,hv);
-vec3 col=vec3(0.);float tr=1.,pr=0.;bool esc=false;
-for(int i=0;i<160;i++){
+vec4 o=vec4(0.);
+for(int i=0;i<260;i++){
 float r2=dot(p,p),r=sqrt(r2);
 if(r<.55)break;
-if(r>55.&&dot(p,v)>0.){esc=true;break;}
-float dt=clamp(.06*r,.025,1.4);
-float rr0=length(p.xz);
-col+=tr*vec3(1.,.5,.2)*br*.02*exp(-3.*p.y*p.y)*pow(clamp(ri/max(rr0,.01),0.,1.),1.8)*step(ri,rr0)*dt;
-float d=(r-1.52)*7.;pr+=exp(-d*d)*dt;
+if(r>55.&&dot(p,v)>0.){o=vec4(clamp(stars(v),0.,1.),0.);break;}
+float dt=clamp(.04*r,.02,1.);
 vec3 q=p;
 v=normalize(v-1.5*H*p/(r2*r2*r)*dt);
 p+=v*dt;
-if(q.y*p.y<0.&&tr>.02){
+if(q.y*p.y<0.){
 vec3 hp=mix(q,p,q.y/(q.y-p.y));
 float rr=length(hp.xz);
-if(rr>ri&&rr<13.){
-float x=rr/ri;
-float I=pow(x,-1.8)*smoothstep(1.,1.25,x);
-float a=atan(hp.z,hp.x)-T*1.2*pow(rr,-1.5);
-vec2 w=vec2(cos(a),sin(a))*3.;
-float n=.6*vn(w+vec2(rr*7.,rr*5.))+.4*vn(w*3.+vec2(rr*31.,rr*23.));
-float tx=.5+n+.12*sin(rr*55.);
-float b=min(.8,sqrt(.5/max(rr-.6,.05)));
-vec3 vd=b*normalize(vec3(hp.z,0.,-hp.x));
-float g=clamp(1./(sqrt(1.-b*b)*(1.+dot(vd,v)))*sqrt(max(1.-1./rr,.03)),.45,2.2);
-col+=tr*heat(1.1*pow(x,-.7)*g)*I*tx*g*g*br*2.4;
-tr*=1.-.92*smoothstep(1.,1.12,x)*(1.-smoothstep(8.,13.,rr));
-}}}
-if(esc)col+=tr*stars(v);
-col+=vec3(1.,.82,.58)*pr*.06*br;
-col=1.-exp(-col*1.25);
-col=pow(col,vec3(.85));
-col*=1.-.3*dot(uv,uv);
-col+=(h2(gl_FragCoord.xy)-.5)/255.;
-gl_FragColor=vec4(col,1.);}`;
+if(rr>.55&&rr<8.5){
+vec3 u=normalize(vec3(hp.z,0.,-hp.x));
+float rq=floor(rr/10.*4095.+.5);
+float pq=floor((atan(hp.z,hp.x)/6.2831853+.5)*4095.+.5);
+float cq=floor((dot(u,v)*.5+.5)*126.+.5);
+o=vec4(floor(rq/16.),mod(rq,16.)*16.+floor(pq/256.),mod(pq,256.),129.+cq)/255.;
+break;}}}
+gl_FragColor=o;}`;
 
-const $=id=>document.getElementById(id),c=$('c'),gl=c.getContext('webgl',{antialias:false});
+// Stage B (cheap, every frame): spins the disk pattern, adds Doppler beaming, spin and brightness.
+const FSB=`precision highp float;
+uniform sampler2D G;uniform vec2 R;uniform float T,sp,br,ri;
+float h2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y);}
+vec3 heat(float t){return mix(vec3(.5,.07,.02),vec3(1.,.6,.22),clamp(t,0.,1.))+vec3(0.,.28,.55)*max(t-1.,0.);}
+float pat(float rr,float ph,float tm){
+float a=ph+tm*(2.+4.*sp)*pow(rr,-1.5);
+vec2 cs=vec2(cos(a),sin(a));
+float arm=.5+.5*sin(2.*a+4.*log(rr));
+return .25+1.1*(.4*vn(cs*2.5+vec2(rr*1.7,rr*.9))+.3*vn(cs*6.+vec2(rr*5.,rr*3.))+.5*arm*arm)*(.85+.15*sin(rr*60.));}
+void main(){
+vec2 uv=(gl_FragCoord.xy-.5*R)/min(R.x,R.y);
+vec4 d=floor(texture2D(G,gl_FragCoord.xy/R)*255.+.5);
+vec3 col=d.rgb/255.;
+if(d.a>128.){
+float rr=(d.r*16.+floor(d.g/16.))/4095.*10.;
+float ph=((mod(d.g,16.)*256.+d.b)/4095.-.5)*6.2831853;
+float c=(d.a-129.)/63.-1.;
+float x=rr/ri,s=clamp(rr/3.,.35,50.);
+float P=24.,w=sin(3.14159*T/P);w*=w;
+float tx=mix(pat(rr,ph,mod(T+P*.5,P)),pat(rr,ph,mod(T,P)),w);
+float b=min(.8,sqrt(.5/max(rr-.6,.05)));
+float g=clamp(1./(sqrt(1.-b*b)*(1.+b*c))*sqrt(max(1.-1./rr,.03)),.45,2.2);
+float I=pow(s,-1.3)*smoothstep(1.,1.2,x)*(1.-smoothstep(4.5,8.,rr));
+col=1.-exp(-heat(1.25*pow(s,-.75)*g)*I*tx*g*g*br*2.2);
+}
+float k=(length(uv)-.1433)/.004;
+col+=vec3(1.,.85,.62)*exp(-k*k)*(.7-.5*clamp(uv.x/.14,-1.,1.))*.9;
+col+=vec3(1.,.5,.2)*exp(-dot(uv,uv)/.045)*.05*br;
+col*=1.-.3*dot(uv,uv);
+gl_FragColor=vec4(pow(clamp(col,0.,1.),vec3(.9))+(h2(gl_FragCoord.xy)-.5)/255.,1.);}`;
+
+const $=id=>document.getElementById(id),c=$('c'),gl=c.getContext('webgl',{antialias:false,powerPreference:'high-performance'});
 if(!gl){document.body.insertAdjacentHTML('beforeend','<p style="position:fixed;top:40%;width:100%;text-align:center">WebGL not supported on this browser.</p>');throw 0}
 function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o}
-const pg=gl.createProgram();
-gl.attachShader(pg,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
-gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,FS));
-gl.linkProgram(pg);gl.useProgram(pg);
+function prog(fs){const p=gl.createProgram();
+gl.attachShader(p,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.bindAttribLocation(p,0,'a');gl.linkProgram(p);
+if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(p));return p}
+const A=prog(FSA),B=prog(FSB),U=(p,...n)=>Object.fromEntries(n.map(k=>[k,gl.getUniformLocation(p,k)])),
+ua=U(A,'R','el'),ub=U(B,'G','R','T','sp','br','ri');
 gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-const loc=gl.getAttribLocation(pg,'a');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-const U={};['R','T','sp','br','el','ri'].forEach(n=>U[n]=gl.getUniformLocation(pg,n));
+gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
 
-let sp=.9,br=1,el=.22,q=Math.min(devicePixelRatio||1,2)*.55;
-function fit(){c.width=Math.max(2,innerWidth*q|0);c.height=Math.max(2,innerHeight*q|0);gl.viewport(0,0,c.width,c.height)}
-fit();addEventListener('resize',fit);
+const tex=gl.createTexture(),fb=gl.createFramebuffer();
+gl.bindTexture(gl.TEXTURE_2D,tex);
+[[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]].forEach(([k,v])=>gl.texParameteri(gl.TEXTURE_2D,k,v));
+
+const EL=.36,N=10; // EL = camera angle above the disk (radians), N = strips the one-time trace is split into
+let sp=.9,br=1,W,H,row=0,rz;
+function fit(){
+const s=Math.min(devicePixelRatio||1,1.5,Math.sqrt(5e5/(innerWidth*innerHeight)));
+W=Math.max(16,innerWidth*s|0);H=Math.max(16,innerHeight*s|0);
+c.width=W;c.height=H;gl.viewport(0,0,W,H);
+gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+gl.bindFramebuffer(gl.FRAMEBUFFER,null);row=0}
+fit();addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(fit,250)});
 
 // innermost stable orbit for a prograde Kerr orbit, in Schwarzschild radii
 function isco(a){const z1=1+Math.cbrt(1-a*a)*(Math.cbrt(1+a)+Math.cbrt(1-a)),z2=Math.sqrt(3*a*a+z1*z1);return(3+z2-Math.sqrt((3-z1)*(3+z1+2*z2)))/2}
@@ -111,20 +142,18 @@ function isco(a){const z1=1+Math.cbrt(1-a*a)*(Math.cbrt(1+a)+Math.cbrt(1-a)),z2=
 $('s').oninput=e=>{sp=+e.target.value;$('sv').textContent=sp.toFixed(2);$('bd').textContent='Kerr • a = '+(+sp.toFixed(2))};
 $('b').oninput=e=>{br=+e.target.value;$('bv').textContent=br.toFixed(2)};
 
-// drag up/down to tilt the view
-let dr=0,ly=0;
-c.onpointerdown=e=>{dr=1;ly=e.clientY;c.setPointerCapture(e.pointerId)};
-c.onpointerup=c.onpointercancel=()=>dr=0;
-c.onpointermove=e=>{if(dr){el=Math.min(1.45,Math.max(.03,el+(e.clientY-ly)*.004));ly=e.clientY}};
-
-// drops resolution automatically if the phone can't hold ~30fps
-let last=performance.now(),acc=0,n=0;
 function frame(t){
-gl.uniform2f(U.R,c.width,c.height);gl.uniform1f(U.T,t/1000);
-gl.uniform1f(U.sp,sp);gl.uniform1f(U.br,br);gl.uniform1f(U.el,el);gl.uniform1f(U.ri,isco(sp));
+if(row<H){ // trace one strip per frame so the page never freezes
+const h=Math.ceil(H/N);
+gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.useProgram(A);
+gl.uniform2f(ua.R,W,H);gl.uniform1f(ua.el,EL);
+gl.enable(gl.SCISSOR_TEST);gl.scissor(0,row,W,h);
 gl.drawArrays(gl.TRIANGLES,0,3);
-acc+=t-last;last=t;
-if(++n==30){if(acc/30>34&&q>.25){q*=.8;fit()}acc=n=0}
+gl.disable(gl.SCISSOR_TEST);gl.bindFramebuffer(gl.FRAMEBUFFER,null);row+=h}
+gl.useProgram(B);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.uniform1i(ub.G,0);gl.uniform2f(ub.R,W,H);gl.uniform1f(ub.T,t/1000);
+gl.uniform1f(ub.sp,sp);gl.uniform1f(ub.br,br);gl.uniform1f(ub.ri,isco(sp));
+gl.drawArrays(gl.TRIANGLES,0,3);
 requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
 </script>
