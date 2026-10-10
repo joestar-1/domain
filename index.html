@@ -62,6 +62,13 @@
     border-radius: 999px; border: 1px solid rgba(120,180,255,.25);
     pointer-events: none;
   }
+  #dist {
+    position: fixed; top: 62px; right: 22px; z-index: 10;
+    font-size: .78rem; letter-spacing: 2px;
+    color: #ffd479; background: rgba(8,15,26,.6); padding: .5rem 1rem;
+    border-radius: 999px; border: 1px solid rgba(255,212,121,.3);
+    pointer-events: none; font-variant-numeric: tabular-nums;
+  }
 </style>
 <script type="importmap">
 { "imports": {
@@ -74,6 +81,7 @@
 <canvas id="scene"></canvas>
 <div id="progress"><div id="progressBar"></div></div>
 <div id="chapter">Departure</div>
+<div id="dist">⚓ 0.0 NM</div>
 <div class="scroll-hint">SCROLL TO SAIL &darr;</div>
 
 <main>
@@ -214,6 +222,17 @@ const waveH = (x, z, t) =>
   Math.sin(x * 0.16 + t * 1.7) * 0.28 + Math.cos(z * 0.13 + t * 1.15) * 0.28 +
   Math.sin((x + z) * 0.06 + t * 0.6) * 0.22;
 
+// voyage route: long S-curve run with slalom bends
+const VOY_X0 = -300, VOY_DX = 600, VOY_BENDS = 5, VOY_AMP = 22;
+const pathX = p => VOY_X0 + VOY_DX * p;
+const pathZ = p => Math.sin(p * Math.PI * VOY_BENDS) * VOY_AMP;
+const pathDZ = p => Math.cos(p * Math.PI * VOY_BENDS) * VOY_AMP * Math.PI * VOY_BENDS;
+let _seed = 7; const srand = () => (_seed = (_seed * 16807) % 2147483647) / 2147483647;
+const VOY_LEN = (() => { let L = 0, lx = pathX(0), lz = pathZ(0);
+  for (let i = 1; i <= 200; i++) { const x = pathX(i / 200), z = pathZ(i / 200);
+    L += Math.hypot(x - lx, z - lz); lx = x; lz = z; } return L; })();
+const VOY_NM = VOY_LEN / 50; // display scale: ~50 units per nautical mile
+
 // ---------- stars & moon ----------
 const stars = (() => {
   const n = 1500, pos = new Float32Array(n * 3);
@@ -223,7 +242,7 @@ const stars = (() => {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const m = new THREE.PointsMaterial({ color: 0xdfe8ff, size: 1.1, sizeAttenuation: false, transparent: true, opacity: 0, fog: false });
-  const pts = new THREE.Points(g, m); scene.add(pts); return m;
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; scene.add(pts); return { m, pts };
 })();
 const moonBall = new THREE.Mesh(new THREE.SphereGeometry(7, 24, 24),
   new THREE.MeshBasicMaterial({ color: 0xeef2fd, fog: false, transparent: true, opacity: 0 }));
@@ -364,13 +383,22 @@ function island(x, z, s) {
   palm(x - 2 * s, 2.2 * s, z + 1 * s, s); palm(x + 2.4 * s, 2.4 * s, z - 1.4 * s, s * 0.85);
 }
 island(-42, -52, 1.0); island(40, -14, 0.75); island(-38, 26, 1.15); island(44, 58, 0.8); island(-6, -78, 1.2);
+// voyage islands strung along the route, well clear of the sailing line
+for (let i = 0; i < 12; i++) {
+  const pi = 0.04 + (i / 11) * 0.92;
+  const side = i % 2 === 0 ? 1 : -1;
+  island(pathX(pi) + (srand() - 0.5) * 30, pathZ(pi) + side * (30 + srand() * 22), 0.75 + srand() * 0.6);
+}
 
 // buoys ride the waves
 const buoys = [];
 {
   const red = new THREE.MeshStandardMaterial({ color: 0xc23a2c, roughness: 0.55 });
   const wht = new THREE.MeshStandardMaterial({ color: 0xe8e4da, roughness: 0.55 });
-  [[-9, -30], [10, -2], [-11, 30], [8, 62]].forEach(([x, z]) => {
+  { const _gates = [];
+    for (let _k = 0; _k < 20; _k++) { const _pi = 0.025 + _k * 0.05;
+      _gates.push([pathX(_pi), pathZ(_pi) - 7.5], [pathX(_pi), pathZ(_pi) + 7.5]); }
+    _gates.forEach(([x, z]) => {
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 1.4, 12), red); g.add(body);
     const bandM = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.58, 0.35, 12), wht); g.add(bandM);
@@ -378,12 +406,14 @@ const buoys = [];
     g.position.set(x, 0, z);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g); buoys.push(g);
-  });
+  }); }
 }
 
 // ---------- scroll journey ----------
 const sections = [...document.querySelectorAll('section')];
 const chapterEl = document.getElementById('chapter');
+const distEl = document.getElementById('dist');
+let lastDist = '';
 const barEl = document.getElementById('progressBar');
 const io = new IntersectionObserver(es => es.forEach(e => {
   if (e.isIntersecting) {
@@ -431,11 +461,11 @@ function tick() {
   const p = progress();
 
   // yacht on an S-curve, riding the actual wave height
-  const x = -40 + 80 * p;
-  const z = Math.sin(p * Math.PI * 2.2) * 10;
-  const dzdp = Math.cos(p * Math.PI * 2.2) * 10 * Math.PI * 2.2;
+  const x = pathX(p);
+  const z = pathZ(p);
+  const dzdp = pathDZ(p);
   yacht.position.set(x, waveH(x, z, t) * 0.55 + 0.1, z);
-  yacht.rotation.y = Math.atan2(80, -dzdp) + Math.PI;
+  yacht.rotation.y = Math.atan2(VOY_DX, -dzdp) + Math.PI;
   yacht.rotation.z = Math.sin(t * 1.1) * 0.025;
   yacht.rotation.x = Math.sin(t * 0.85 + 1) * 0.02;
   radarBar.rotation.y = t * 1.6;
@@ -482,13 +512,17 @@ function tick() {
   sky.position.set(x, 0, z);
   moonBall.position.set(x - 90, Math.max(-20, (p - 0.55) * 160), -120);
   moonBall.material.opacity = Math.max(0, Math.min(1, (p - 0.62) * 3.2));
-  stars.opacity = Math.max(0, Math.min(1, (p - 0.6) * 3));
+  stars.m.opacity = Math.max(0, Math.min(1, (p - 0.6) * 3));
+  stars.pts.position.set(x, 0, z);
 
   // cinematic chase cam
   const want = new THREE.Vector3(x - 12.5, 6.8 - p * 1.2, z + 12.5);
   camPos.lerp(want, 0.045);
   camera.position.copy(camPos);
   camera.lookAt(x + 3, 2.4, z - 2);
+
+  const nm = '⚓ ' + (VOY_NM * p).toFixed(1) + ' / ' + VOY_NM.toFixed(1) + ' NM';
+  if (nm !== lastDist) { distEl.textContent = nm; lastDist = nm; }
 
   renderer.render(scene, camera);
 }
