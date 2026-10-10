@@ -132,6 +132,12 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+// surface 3D errors visibly instead of a black screen
+addEventListener('error', e => {
+  const el = document.getElementById('chapter');
+  if (el) { el.textContent = '3D error: ' + (e.message || 'unknown').slice(0, 90); el.style.color = '#ff7b72'; }
+});
+
 // ---------- renderer / scene (cinematic pipeline) ----------
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -402,6 +408,7 @@ function palette(p, key, out) {
     if (p >= STOPS[i].p && p <= STOPS[i + 1].p) { a = STOPS[i]; b = STOPS[i + 1]; break; }
   const t = (p - a.p) / Math.max(1e-5, b.p - a.p);
   if (typeof a[key] === 'number') return a[key] + (b[key] - a[key]) * t;
+  if (Array.isArray(a[key])) return a[key].map((v, i) => v + (b[key][i] - v) * t);
   return out.copy(a[key]).lerp(b[key], t);
 }
 
