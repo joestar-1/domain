@@ -1,238 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>sukonoe.c11.eu — Kerr Black Hole</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#02030a">
+<title>A Spinning Black Hole · sukonoe.c11.eu</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; }
-  body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #000; color: #e6edf3;
-  }
-  #scene { position: fixed; inset: 0; display: block; }
-  .hud {
-    position: fixed; left: 24px; bottom: 24px; z-index: 10;
-    max-width: 400px; background: rgba(5, 8, 14, .68);
-    border: 1px solid rgba(255, 170, 80, .28); border-radius: 16px;
-    padding: 1.3rem 1.5rem; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 12px 40px rgba(0,0,0,.6);
-  }
-  .kicker { font-size: .72rem; letter-spacing: 4px; text-transform: uppercase; color: #ffb45e; font-weight: 700; }
-  h1 { font-size: 1.7rem; margin: .4rem 0 .6rem; }
-  h1 span { color: #ffb45e; }
-  p { color: #a8b3c0; font-size: .88rem; line-height: 1.6; margin-bottom: .5rem; }
-  p b { color: #e6edf3; }
-  .controls { margin-top: .9rem; display: grid; gap: .55rem; }
-  .controls label { font-size: .75rem; letter-spacing: 1px; color: #8b949e; display: flex; justify-content: space-between; }
-  .controls input[type=range] { width: 100%; accent-color: #ff9a3c; }
-  .links { margin-top: .9rem; }
-  .links a { color: #8b949e; font-size: .85rem; margin-right: 1rem; text-decoration: none; }
-  .links a:hover { color: #ffb45e; }
-  #badge {
-    position: fixed; top: 18px; right: 22px; z-index: 10;
-    font-size: .75rem; letter-spacing: 3px;
-    color: #ffd479; background: rgba(5,8,14,.65); padding: .5rem 1rem;
-    border-radius: 999px; border: 1px solid rgba(255,180,90,.3);
-  }
-  @media (max-width: 640px) { .hud { left: 12px; right: 12px; bottom: 12px; max-width: none; } }
-</style>
-<script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+:root{--o:#ff9d3d}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#02030a;color:#e8e8ee;font-family:Roboto,system-ui,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.card{position:fixed;left:24px;top:50%;transform:translateY(-50%);width:min(386px,calc(100% - 48px));padding:22px 24px;border-radius:18px;background:rgba(6,8,14,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,157,61,.22);font-size:13.5px;line-height:1.55}
+.k{font-size:10px;letter-spacing:.28em;color:var(--o);font-weight:700;margin:0 0 8px}
+h1{font-size:25px;margin:0 0 12px;line-height:1.15}
+h1 em{font-style:normal;color:var(--o)}
+p{margin:0 0 10px;color:#c9cad3}
+b{color:#fff}
+label{display:flex;justify-content:space-between;font-size:12px;color:#9a9ba8;margin-top:12px}
+input[type=range]{width:100%;accent-color:var(--o);margin:6px 0 0}
+.l{margin-top:14px;display:flex;gap:18px;font-size:12px}
+a{color:#a9aab6;text-decoration:none}
+a:hover,a:focus-visible{color:var(--o)}
+.badge{position:fixed;top:max(14px,env(safe-area-inset-top));right:16px;padding:6px 14px;border:1px solid rgba(255,157,61,.3);border-radius:99px;font-size:12px;letter-spacing:.08em;color:#ffcf8a;background:rgba(6,8,14,.6)}
+@media(max-width:700px){.card{left:12px;top:auto;bottom:max(12px,env(safe-area-inset-bottom));transform:none;width:calc(100% - 24px);padding:14px 16px;font-size:12.5px}h1{font-size:20px;margin-bottom:8px}.k{margin-bottom:4px}}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="badge" id="bd">Kerr • a = 0.9</div>
+<section class="card" id="about">
+<p class="k">SUKONOE.C11.EU</p>
+<h1>A <em>Spinning</em> Black Hole</h1>
+<p>In <b>1963</b>, mathematician <b>Roy Kerr</b> solved Einstein's equations for a rotating black hole — the kind that actually exists out there (Schwarzschild's 1916 solution doesn't spin).</p>
+<p>The disk's left side burns brighter: that's <b>doppler beaming</b> — matter hurtling toward you at a fraction of light speed. The thin halo is the <b>photon ring</b>.</p>
+<label for="s">Spin<span id="sv">0.90</span></label>
+<input id="s" type="range" min="0" max="0.99" step="0.01" value="0.9">
+<label for="b">Disk brightness<span id="bv">1.00</span></label>
+<input id="b" type="range" min="0.2" max="2.5" step="0.05" value="1">
+<div class="l"><a href="https://github.com/joestar-1/domain">GitHub</a><a href="mailto:YOU@EXAMPLE.COM">Contact</a></div>
+</section>
+<script data-cfasync="false">
+const FS=`precision highp float;
+uniform vec2 R;uniform float T,sp,br,el,ri;
+float h2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float h3(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+return mix(mix(h2(i),h2(i+vec2(1.,0.)),f.x),mix(h2(i+vec2(0.,1.)),h2(i+vec2(1.,1.)),f.x),f.y);}
+vec3 stars(vec3 d){
+vec3 p=d*140.,i=floor(p);float h=h3(i);
+float s=(1.-smoothstep(0.,.33,length(fract(p)-.5)))*step(.965,h);
+return mix(vec3(1.,.8,.65),vec3(.7,.8,1.),h3(i+3.))*s*(.35+1.5*h3(i+7.));}
+vec3 heat(float t){return mix(vec3(.5,.07,.02),vec3(1.,.6,.22),clamp(t,0.,1.))+vec3(0.,.28,.55)*max(t-1.,0.);}
+void main(){
+vec2 uv=(gl_FragCoord.xy-.5*R)/min(R.x,R.y);
+vec3 p=40.*vec3(0.,sin(el),cos(el));
+vec3 fw=-normalize(p),rt=normalize(cross(fw,vec3(0.,1.,0.))),up=cross(rt,fw);
+vec3 v=normalize(uv.x*rt+uv.y*up+2.2*fw);
+vec3 hv=cross(p,v);float H=dot(hv,hv);
+vec3 col=vec3(0.);float tr=1.,pr=0.;bool esc=false;
+for(int i=0;i<160;i++){
+float r2=dot(p,p),r=sqrt(r2);
+if(r<.55)break;
+if(r>55.&&dot(p,v)>0.){esc=true;break;}
+float dt=clamp(.06*r,.025,1.4);
+float rr0=length(p.xz);
+col+=tr*vec3(1.,.5,.2)*br*.02*exp(-3.*p.y*p.y)*pow(clamp(ri/max(rr0,.01),0.,1.),1.8)*step(ri,rr0)*dt;
+float d=(r-1.52)*7.;pr+=exp(-d*d)*dt;
+vec3 q=p;
+v=normalize(v-1.5*H*p/(r2*r2*r)*dt);
+p+=v*dt;
+if(q.y*p.y<0.&&tr>.02){
+vec3 hp=mix(q,p,q.y/(q.y-p.y));
+float rr=length(hp.xz);
+if(rr>ri&&rr<13.){
+float x=rr/ri;
+float I=pow(x,-1.8)*smoothstep(1.,1.25,x);
+float a=atan(hp.z,hp.x)-T*1.2*pow(rr,-1.5);
+vec2 w=vec2(cos(a),sin(a))*3.;
+float n=.6*vn(w+vec2(rr*7.,rr*5.))+.4*vn(w*3.+vec2(rr*31.,rr*23.));
+float tx=.5+n+.12*sin(rr*55.);
+float b=min(.8,sqrt(.5/max(rr-.6,.05)));
+vec3 vd=b*normalize(vec3(hp.z,0.,-hp.x));
+float g=clamp(1./(sqrt(1.-b*b)*(1.+dot(vd,v)))*sqrt(max(1.-1./rr,.03)),.45,2.2);
+col+=tr*heat(1.1*pow(x,-.7)*g)*I*tx*g*g*br*2.4;
+tr*=1.-.92*smoothstep(1.,1.12,x)*(1.-smoothstep(8.,13.,rr));
+}}}
+if(esc)col+=tr*stars(v);
+col+=vec3(1.,.82,.58)*pr*.06*br;
+col=1.-exp(-col*1.25);
+col=pow(col,vec3(.85));
+col*=1.-.3*dot(uv,uv);
+col+=(h2(gl_FragCoord.xy)-.5)/255.;
+gl_FragColor=vec4(col,1.);}`;
+
+const $=id=>document.getElementById(id),c=$('c'),gl=c.getContext('webgl',{antialias:false});
+if(!gl){document.body.insertAdjacentHTML('beforeend','<p style="position:fixed;top:40%;width:100%;text-align:center">WebGL not supported on this browser.</p>');throw 0}
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o}
+const pg=gl.createProgram();
+gl.attachShader(pg,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,FS));
+gl.linkProgram(pg);gl.useProgram(pg);
+gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(pg,'a');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+const U={};['R','T','sp','br','el','ri'].forEach(n=>U[n]=gl.getUniformLocation(pg,n));
+
+let sp=.9,br=1,el=.22,q=Math.min(devicePixelRatio||1,2)*.55;
+function fit(){c.width=Math.max(2,innerWidth*q|0);c.height=Math.max(2,innerHeight*q|0);gl.viewport(0,0,c.width,c.height)}
+fit();addEventListener('resize',fit);
+
+// innermost stable orbit for a prograde Kerr orbit, in Schwarzschild radii
+function isco(a){const z1=1+Math.cbrt(1-a*a)*(Math.cbrt(1+a)+Math.cbrt(1-a)),z2=Math.sqrt(3*a*a+z1*z1);return(3+z2-Math.sqrt((3-z1)*(3+z1+2*z2)))/2}
+
+$('s').oninput=e=>{sp=+e.target.value;$('sv').textContent=sp.toFixed(2);$('bd').textContent='Kerr • a = '+(+sp.toFixed(2))};
+$('b').oninput=e=>{br=+e.target.value;$('bv').textContent=br.toFixed(2)};
+
+// drag up/down to tilt the view
+let dr=0,ly=0;
+c.onpointerdown=e=>{dr=1;ly=e.clientY;c.setPointerCapture(e.pointerId)};
+c.onpointerup=c.onpointercancel=()=>dr=0;
+c.onpointermove=e=>{if(dr){el=Math.min(1.45,Math.max(.03,el+(e.clientY-ly)*.004));ly=e.clientY}};
+
+// drops resolution automatically if the phone can't hold ~30fps
+let last=performance.now(),acc=0,n=0;
+function frame(t){
+gl.uniform2f(U.R,c.width,c.height);gl.uniform1f(U.T,t/1000);
+gl.uniform1f(U.sp,sp);gl.uniform1f(U.br,br);gl.uniform1f(U.el,el);gl.uniform1f(U.ri,isco(sp));
+gl.drawArrays(gl.TRIANGLES,0,3);
+acc+=t-last;last=t;
+if(++n==30){if(acc/30>34&&q>.25){q*=.8;fit()}acc=n=0}
+requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
 </script>
-</head>
-<body>
-<canvas id="scene"></canvas>
-<div id="badge">Kerr &bull; a = 0.9</div>
-<div class="hud">
-  <div class="kicker">sukonoe.c11.eu</div>
-  <h1>A <span>Spinning</span> Black Hole</h1>
-  <p>In <b>1963</b>, mathematician <b>Roy Kerr</b> solved Einstein's equations for a rotating black hole — the kind that actually exists out there (Schwarzschild's 1916 solution doesn't spin).</p>
-  <p>The disk's left side burns brighter: that's <b>doppler beaming</b> — matter hurtling toward you at a fraction of light speed. The thin halo is the <b>photon ring</b>.</p>
-  <div class="controls">
-    <label>Spin <span id="spinVal">0.90</span></label>
-    <input id="spin" type="range" min="0" max="0.998" step="0.01" value="0.9">
-    <label>Disk brightness <span id="glowVal">1.00</span></label>
-    <input id="glow" type="range" min="0.3" max="2" step="0.05" value="1">
-  </div>
-  <div class="links">
-    <a href="https://github.com/joestar-1">GitHub</a>
-    <a href="mailto:sukonoe356@proton.me">Contact</a>
-  </div>
-</div>
-
-<script type="module">
-import * as THREE from 'three';
-
-addEventListener('error', e => {
-  const el = document.getElementById('badge');
-  if (el) el.textContent = '3D error: ' + (e.message || 'unknown').slice(0, 80);
-});
-
-const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000005);
-const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
-camera.position.set(0, 2.4, 10.5);
-
-// ---------- starfield ----------
-{
-  const n = 2200, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
-  const tints = [[1,1,1],[0.7,0.82,1],[1,0.88,0.7],[1,0.7,0.7]];
-  for (let i = 0; i < n; i++) {
-    const v = new THREE.Vector3().randomDirection().multiplyScalar(120 + Math.random() * 160);
-    pos.set([v.x, v.y, v.z], i * 3);
-    const c = tints[(Math.random() * tints.length) | 0], b = 0.35 + Math.random() * 0.65;
-    col.set([c[0]*b, c[1]*b, c[2]*b], i * 3);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.4, sizeAttenuation: false, vertexColors: true, fog: false })));
-}
-
-// ---------- black hole group (tilted like Gargantua) ----------
-const hole = new THREE.Group();
-hole.rotation.x = 0.32; // camera looks slightly down on the disk plane
-scene.add(hole);
-
-// shadow (event-horizon silhouette, r = 1)
-const shadow = new THREE.Mesh(
-  new THREE.SphereGeometry(1.0, 48, 32),
-  new THREE.MeshBasicMaterial({ color: 0x000000 })
-);
-hole.add(shadow);
-
-// photon ring: thin, fiercely bright
-const ring = new THREE.Mesh(
-  new THREE.RingGeometry(1.02, 1.16, 128),
-  new THREE.MeshBasicMaterial({ color: 0xffe9c4, transparent: true, opacity: 0.95,
-    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
-);
-hole.add(ring);
-
-// ---------- accretion disk shader ----------
-// Keplerian shear + turbulent streaks + temperature gradient + doppler beaming
-const diskUni = {
-  uTime:  { value: 0 },
-  uSpin:  { value: 0.9 },   // 0..0.998 — pushes ISCO inward, disk reaches deeper
-  uGlow:  { value: 1.0 },
-  uInner: { value: 1.45 },  // ISCO-ish inner edge for high spin
-  uOuter: { value: 4.6 },
-};
-const diskMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, side: THREE.DoubleSide,
-  blending: THREE.AdditiveBlending,
-  uniforms: diskUni,
-  vertexShader: `
-    varying vec2 vP;
-    void main(){ vP = position.xy;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `
-    varying vec2 vP;
-    uniform float uTime, uSpin, uGlow, uInner, uOuter;
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
-      return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
-    float fbm(vec2 p){ float v = 0.0, a = 0.5;
-      for(int i=0;i<4;i++){ v += a*noise(p); p *= 2.1; a *= 0.5; } return v; }
-    void main(){
-      float r = length(vP);
-      if (r < uInner || r > uOuter) discard;
-      float th = atan(vP.y, vP.x);
-      // Keplerian shear: inner matter orbits much faster (omega ~ r^-1.5)
-      float omega = 1.6 / pow(r, 1.5);
-      float a = th - uTime * omega;
-      // stretched turbulent streaks
-      float streak = fbm(vec2(a * 3.0, r * 4.0 - uTime * 0.25));
-      streak = 0.35 + 0.65 * streak;
-      float streak2 = fbm(vec2(a * 7.0 + 3.7, r * 9.0));
-      streak *= 0.6 + 0.4 * streak2;
-      // temperature: white-hot rim -> deep orange rim-out
-      float heat = pow(1.0 - (r - uInner) / (uOuter - uInner), 1.6);
-      vec3 col = mix(vec3(0.45, 0.08, 0.01), vec3(1.0, 0.45, 0.1), smoothstep(0.0, 0.55, heat));
-      col = mix(col, vec3(1.0, 0.93, 0.82), smoothstep(0.55, 0.95, heat));
-      // doppler beaming: left side approaches (brighter), right recedes (dimmer)
-      float dop = -cos(th);      // +1 approaching .. -1 receding
-      float boost = pow(clamp(1.0 + 0.75 * dop, 0.0, 2.2), 3.0);
-      col *= (0.25 + boost);
-      col = mix(col, vec3(0.65, 0.8, 1.0), clamp(dop, 0.0, 1.0) * 0.35 * heat); // blue shift
-      col = mix(col, vec3(0.9, 0.25, 0.1), clamp(-dop, 0.0, 1.0) * 0.45 * heat); // red shift
-      // gravitational dimming very close to the hole + soft edges
-      float edge = smoothstep(uInner, uInner + 0.25, r) * (1.0 - smoothstep(uOuter - 0.9, uOuter, r));
-      float alpha = clamp(streak * (0.15 + heat * 1.3) * edge, 0.0, 1.0);
-      gl_FragColor = vec4(col * uGlow * 1.6, alpha);
-    }`
-});
-const disk = new THREE.Mesh(new THREE.RingGeometry(1.3, 4.6, 180, 24), diskMat);
-disk.rotation.x = -Math.PI / 2;
-hole.add(disk);
-
-// lensed halo arcs: light bent over/under the shadow (the Interstellar halo)
-const haloMat = new THREE.MeshBasicMaterial({ color: 0xffc98a, transparent: true, opacity: 0.3,
-  blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
-const haloTop = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.07, 10, 90, Math.PI * 0.85), haloMat);
-haloTop.rotation.z = Math.PI * 0.075;
-haloTop.position.y = 0.55;
-hole.add(haloTop);
-const haloBot = haloTop.clone();
-haloBot.rotation.z = Math.PI + Math.PI * 0.075;
-haloBot.position.y = -0.55;
-hole.add(haloBot);
-
-// faint jet glow along the spin axis
-const jetMat = new THREE.MeshBasicMaterial({ color: 0x6fb7ff, transparent: true, opacity: 0.035,
-  blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.55, 14, 20, 1, true), jetMat);
-hole.add(jet);
-
-// ---------- controls ----------
-const spinEl = document.getElementById('spin'), glowEl = document.getElementById('glow');
-const badge = document.getElementById('badge');
-spinEl.addEventListener('input', () => {
-  const s = parseFloat(spinEl.value);
-  document.getElementById('spinVal').textContent = s.toFixed(2);
-  badge.textContent = 'Kerr • a = ' + s.toFixed(2);
-  diskUni.uSpin.value = s;
-  // higher spin -> ISCO shrinks -> disk dives deeper, burns hotter
-  diskUni.uInner.value = 1.45 - s * 0.55;
-});
-glowEl.addEventListener('input', () => {
-  document.getElementById('glowVal').textContent = parseFloat(glowEl.value).toFixed(2);
-  diskUni.uGlow.value = parseFloat(glowEl.value);
-});
-
-// camera: slow drift + mouse parallax
-let mx = 0, my = 0;
-addEventListener('pointermove', e => {
-  mx = (e.clientX / innerWidth - 0.5); my = (e.clientY / innerHeight - 0.5);
-});
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-
-const clock = new THREE.Clock();
-function tick() {
-  requestAnimationFrame(tick);
-  const t = clock.getElapsedTime();
-  diskUni.uTime.value = t;
-  const wob = Math.sin(t * 0.12) * 0.05;
-  camera.position.x += ((mx * 2.4) - camera.position.x) * 0.03;
-  camera.position.y += ((2.4 - my * 1.6 + wob) - camera.position.y) * 0.03;
-  camera.lookAt(0, 0, 0);
-  hole.rotation.y = Math.sin(t * 0.05) * 0.12;
-  haloMat.opacity = 0.34 + Math.sin(t * 0.8) * 0.08;
-  renderer.render(scene, camera);
-}
-tick();
-</script>
-</body>
-</html>
+</body></html>
