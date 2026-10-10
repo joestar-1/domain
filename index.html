@@ -176,9 +176,9 @@ disk.rotation.x = -Math.PI / 2;
 hole.add(disk);
 
 // lensed halo arcs: light bent over/under the shadow (the Interstellar halo)
-const haloMat = new THREE.MeshBasicMaterial({ color: 0xffc98a, transparent: true, opacity: 0.4,
+const haloMat = new THREE.MeshBasicMaterial({ color: 0xffc98a, transparent: true, opacity: 0.3,
   blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
-const haloTop = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.10, 10, 90, Math.PI * 0.85), haloMat);
+const haloTop = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.07, 10, 90, Math.PI * 0.85), haloMat);
 haloTop.rotation.z = Math.PI * 0.075;
 haloTop.position.y = 0.55;
 hole.add(haloTop);
@@ -188,9 +188,9 @@ haloBot.position.y = -0.55;
 hole.add(haloBot);
 
 // faint jet glow along the spin axis
-const jetMat = new THREE.MeshBasicMaterial({ color: 0x6fb7ff, transparent: true, opacity: 0.10,
+const jetMat = new THREE.MeshBasicMaterial({ color: 0x6fb7ff, transparent: true, opacity: 0.035,
   blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.9, 14, 20, 1, true), jetMat);
+const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.55, 14, 20, 1, true), jetMat);
 hole.add(jet);
 
 // ---------- controls ----------
